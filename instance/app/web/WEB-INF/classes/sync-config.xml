@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<tablelist>
+    <synctable name="product_sale" movement="down" />
+    <synctable name="product_sale_item" movement="down" />
+    <synctable name="products" movement="up" />
+    <synctable name="customer" movement="up" />
+</tablelist>
