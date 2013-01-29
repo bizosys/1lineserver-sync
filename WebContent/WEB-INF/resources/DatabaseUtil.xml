@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<tablelist>
+    <synctable name="product_sale" className="ProductSale" type="Transaction" />
+    <synctable name="product_sale_item" className="ProductSaleItem" type="Transaction" />
+    <synctable name="products" className="Products" type="Master" />
+    <synctable name="customer" className="Customer" type="Master" />
+</tablelist>
