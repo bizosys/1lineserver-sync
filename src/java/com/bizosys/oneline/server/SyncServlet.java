@@ -31,6 +31,7 @@ import com.oneline.util.FileReaderUtil;
 public class SyncServlet extends HttpServlet 
 {
 	private static final long serialVersionUID = 1L;
+	private int logId;
 	
 	public void init(ServletConfig config)
 	{
@@ -86,19 +87,25 @@ public class SyncServlet extends HttpServlet
 		} 
 	}
 
-	public void sendResponse(OutputStream response, String results) throws IOException 
+	public void sendResponse(OutputStream response, String results) throws Exception 
 	{
 		ObjectOutputStream sendStream = null;
 		sendStream = new ObjectOutputStream(response);
 		sendStream.write(results.getBytes());
 		sendStream.flush();
 		sendStream.close();
+		new WriteBase().execute("Update sync_log SET response_string = " +results +" WHERE id = " +logId);
 	}
 
 	public void syncDatabase(int syncType, String syncData, OutputStream response) throws Exception
 	{
 		try
 		{
+			//Add the request to the sync log table
+			logId = new WriteBase().execute("INSERT INTO sync_log (client_id, sync_type, sync_data, response_string, error_string, comments) VALUES " +
+					"('', '" +syncType +"', '" +syncData +"', '', '', '')");
+			
+
 			if(syncType == SyncTypes.SYNC_UP)
 			{
 				// IF TRANSACTION IS SYNCED THEN RUN THE DATA QUERY IN THE SERVER TABLES
@@ -126,6 +133,7 @@ public class SyncServlet extends HttpServlet
 		}
 		catch(Exception ex)
 		{
+			new WriteBase().execute("Update sync_log SET error_string = " +ex.getMessage() +" WHERE id = " +logId);
 			ex.printStackTrace(System.out);
 			throw ex;
 		}
