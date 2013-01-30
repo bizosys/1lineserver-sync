@@ -122,10 +122,13 @@ public class SyncAgent
 			serverConnection.setDefaultUseCaches(false);
 			serverConnection.setRequestProperty("Content-Type", "text/plain");
 			
-			ObjectOutputStream out = new ObjectOutputStream(serverConnection.getOutputStream());
-			out.write(Compressor.compress(dataToSend));
-			out.flush();
-			out.close();
+			byte[] compressedB = Compressor.compress(dataToSend);
+			System.out.println("############\n" + compressedB.length + "\n############\n");
+			System.out.println( new String (Compressor.decompress(compressedB), "UTF-8") );
+			IOUtils.write(compressedB, serverConnection.getOutputStream());
+			
+			serverConnection.getOutputStream().flush();
+			serverConnection.getOutputStream().close();
 			
 
 			byte[] receivedDump = IOUtils.toByteArray(serverConnection.getInputStream());

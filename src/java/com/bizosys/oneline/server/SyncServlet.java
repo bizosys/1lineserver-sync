@@ -16,6 +16,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.io.IOUtils;
+
 import com.bizosys.oneline.common.Compressor;
 import com.bizosys.oneline.common.SyncTypes;
 import com.oneline.dao.PoolFactory;
@@ -58,15 +60,15 @@ public class SyncServlet extends HttpServlet
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
 	{
-		ObjectInputStream resultStream = null;
 		String results = null;
 		try 
 		{
 			System.out.println("Sync Start......");
-			resultStream = new ObjectInputStream(request.getInputStream());
-			results = Compressor.decompressToString((byte[]) resultStream.readObject());
-			
-			resultStream.close();
+			byte[] receivedDumpBytes = IOUtils.toByteArray(request.getInputStream());
+			int receivedDumpBytesLen = (null == receivedDumpBytes) ? 0 : receivedDumpBytes.length; 
+			System.out.println("Received Data Size : " + receivedDumpBytesLen);
+			results = Compressor.decompressToString(receivedDumpBytes);
+			System.out.println("Decompressed Data: " + results);
 			
 			//Read the results for type of sync
 			String[] input = results.split("\t");
