@@ -94,7 +94,7 @@ public class SyncServlet extends HttpServlet
 		sendStream.write(results.getBytes());
 		sendStream.flush();
 		sendStream.close();
-		new WriteBase().execute("Update sync_log SET response_string = " +results +" WHERE id = " +logId);
+		new WriteBase().execute("Update sync_log SET response_string = '" +results +"' WHERE id = " +logId);
 	}
 
 	public void syncDatabase(int syncType, String syncData, OutputStream response) throws Exception
@@ -133,7 +133,7 @@ public class SyncServlet extends HttpServlet
 		}
 		catch(Exception ex)
 		{
-			new WriteBase().execute("Update sync_log SET error_string = " +ex.getMessage() +" WHERE id = " +logId);
+			new WriteBase().execute("Update sync_log SET error_string = \"" +ex.getMessage() +"\" WHERE id = " +logId);
 			ex.printStackTrace(System.out);
 			throw ex;
 		}
@@ -195,6 +195,7 @@ public class SyncServlet extends HttpServlet
 		s.init(null);
 		
 		OutputStream stream = new FileOutputStream("f:\\out.txt");
-		s.syncDatabase(3, "", stream);
+//		s.syncDatabase(3, "", stream);
+		s.syncDatabase(2, "fksdkdsk;lsd;lgksd;lkg;", stream);
 	}
 }
