@@ -120,7 +120,7 @@
 	<!-- Clean.  Delete the build files, and their directories              -->
 	<!-- ================================================================== -->
 	<target name="clean.all">
-		<delete dir="${build.dir}" />
+		<delete dir="${build.dir}" /> 
 		<delete dir="${HTTP_HOME}/${name}" />
 		<delete file="${HTTP_HOME}/${warfilename}" />
 	</target>

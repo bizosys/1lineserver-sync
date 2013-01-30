@@ -1,8 +1,10 @@
 package com.bizosys.oneline.server;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.sql.SQLException;
@@ -60,43 +62,39 @@ public class SyncServlet extends HttpServlet
 		String results = null;
 		try 
 		{
-			System.out.println("Got Data......");
+			System.out.println("Sync Start......");
 			resultStream = new ObjectInputStream(request.getInputStream());
-			System.out.println("Got Result Stream......");
 			results = Compressor.decompressToString((byte[]) resultStream.readObject());
+			
 			resultStream.close();
 			
 			//Read the results for type of sync
 			String[] input = results.split("\t");
 			int syncType = Integer.parseInt(input[0]);
 			String syncData = "";
-			if(input.length > 1)
-				syncData = input[1];
+			if(input.length > 1) syncData = input[1];
 
 			//Based on the type of the sync operation do the necessary
-			syncDatabase(syncType, syncData, response);
+			syncDatabase(syncType, syncData, response.getOutputStream());
 			
 		} 
-		catch (IOException e) 
+		catch (Exception e) 
 		{
-			e.printStackTrace(); 
+			e.printStackTrace(System.out);
+			response.sendError(501, e.getMessage());
 		} 
-		catch (ClassNotFoundException e) 
-		{
-			e.printStackTrace();
-		}
 	}
 
-	public void sendResponse(HttpServletResponse response, String results) throws IOException 
+	public void sendResponse(OutputStream response, String results) throws IOException 
 	{
 		ObjectOutputStream sendStream = null;
-		sendStream = new ObjectOutputStream(response.getOutputStream());
-		sendStream.writeObject(results);
+		sendStream = new ObjectOutputStream(response);
+		sendStream.write(results.getBytes());
 		sendStream.flush();
 		sendStream.close();
 	}
 
-	public void syncDatabase(int syncType, String syncData, HttpServletResponse response)
+	public void syncDatabase(int syncType, String syncData, OutputStream response) throws Exception
 	{
 		try
 		{
@@ -111,10 +109,11 @@ public class SyncServlet extends HttpServlet
 				StringBuilder sqlDump = new StringBuilder();
 				List<ReadQuadruplet.Quadruplet> downTableInserts = new ReadQuadruplet().execute(
 						"select destination_table, mark_inserts, find_inserts,complete_inserts  from sync_config where direction = 'd'");
+				System.out.println(syncDownSteps(downTableInserts, true));
 				sqlDump.append(syncDownSteps(downTableInserts, true));
 
 				List<ReadQuadruplet.Quadruplet> downTableUpdates = new ReadQuadruplet().execute(
-						"select destination_table, mark_updates, find_updates,complete_updates from sync_config where direction = 'u'");
+						"select destination_table, mark_updates, find_updates,complete_updates from sync_config where direction = 'd'");
 				sqlDump.append(syncDownSteps(downTableUpdates, false));
 				
 				sendResponse(response, sqlDump.toString());
@@ -124,34 +123,36 @@ public class SyncServlet extends HttpServlet
 				// IF SCHEMA IS BEING SYNCED CHECK CHANGES TO THE SCHEMA AND DO THE NECESSARY UPDATES
 			}
 		}
-		catch(SQLException se)
+		catch(Exception ex)
 		{
-			se.printStackTrace();
-			
-			try {
-				sendResponse(response, null);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-		catch (IOException e) 
-		{
-			e.printStackTrace();
+			ex.printStackTrace(System.out);
+			throw ex;
 		}
 	}
 	
 	private String syncDownSteps(List<ReadQuadruplet.Quadruplet> upTables, boolean isInsert) throws SQLException
 	{
+		String sql = null;
 		StringBuilder sqlDump = new StringBuilder();
-		for (ReadQuadruplet.Quadruplet syncTable : upTables)
-		{
-			new WriteBase().execute(syncTable.second.toString());
-			
-			 sqlDump.append((isInsert) ? 
-				sqlDumpInserts(syncTable.first.toString(), syncTable.third.toString()) :
-				sqlDumpUpdates(syncTable.first.toString(), syncTable.third.toString()));
+		try {
+			for (ReadQuadruplet.Quadruplet syncTable : upTables)
+			{
+				//Mark
+				sql = syncTable.second.toString();
+				sql = sql + ";";
+				new WriteBase().execute(sql, new Object[]{});
+				
+				//Update
+				sql = syncTable.third.toString();
+				 sqlDump.append((isInsert) ? sqlDumpInserts(syncTable.first.toString(),sql) : 
+					 sqlDumpUpdates(syncTable.first.toString(), sql));
+			}
+			return sqlDump.toString();			
+		} catch (Exception ex) {
+			System.out.println("Error :" + sql);
+			throw new SQLException(ex);
 		}
-		return sqlDump.toString();
+
 	}
 	
 	private String sqlDumpInserts(String destinationTable, String query)
@@ -170,13 +171,21 @@ public class SyncServlet extends HttpServlet
 		return sw.toString();
 	}
 
-	private String sqlDumpUpdates(String query, String detinationTable) throws SQLException
+	private String sqlDumpUpdates(String detinationTable, String query) throws SQLException
 	{
+		System.out.println(query);
 		StringWriter sw = new StringWriter();
 		PrintWriter writer = new PrintWriter(sw);
 		ReadAsDML reader = new ReadAsDML(writer, ReadAsDML.READ_UPDATE, detinationTable);
 		reader.execute(query);
-		
 		return sw.toString();
+	}
+	
+	public static void main(String[] args) throws Exception {
+		SyncServlet s = new SyncServlet();
+		s.init(null);
+		
+		OutputStream stream = new FileOutputStream("d:\\out.txt");
+		s.syncDatabase(3, "", stream);
 	}
 }

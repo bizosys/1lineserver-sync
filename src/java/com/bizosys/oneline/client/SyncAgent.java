@@ -10,6 +10,8 @@ import java.net.URLConnection;
 import java.sql.SQLException;
 import java.util.List;
 
+import org.apache.commons.io.IOUtils;
+
 import com.bizosys.oneline.common.Compressor;
 import com.bizosys.oneline.common.SyncTypes;
 import com.oneline.dao.IPool;
@@ -17,11 +19,16 @@ import com.oneline.dao.PoolFactory;
 import com.oneline.dao.ReadAsDML;
 import com.oneline.dao.ReadQuadruplet;
 import com.oneline.dao.WriteBase;
+import com.oneline.util.Configuration;
 import com.oneline.util.FileReaderUtil;
 import com.oneline.util.StringUtils;
 
 public class SyncAgent 
 {
+	static Configuration config  = new Configuration();
+	public SyncAgent() {
+		
+	}
 	public void syncUpAndDown() throws SQLException {
 		syncUp();
 		syncDown();
@@ -50,6 +57,7 @@ public class SyncAgent
 			if ( null == sqlDump) continue;
 			if ( sqlDump.length() == 0 ) continue;
 			
+			System.out.println(sqlDump);
 			String syncSuccess = callServlet(SyncTypes.SYNC_UP + "\t" + sqlDump +';');
 			
 			if(syncSuccess.equals("true") ) {
@@ -103,12 +111,10 @@ public class SyncAgent
 
 	private String callServlet(String dataToSend)
 	{
-		System.out.println(dataToSend);
-		if ( 1 == 1) return null;
 		String responseData = "";
 		try 
 		{
-			URL serverURL = new URL("http://localhost:8080/1linesync/DBServlet");
+			URL serverURL = new URL(config.get("destination.url"));
 			URLConnection serverConnection = serverURL.openConnection();
 			serverConnection.setDoInput(true);
 			serverConnection.setDoOutput(true);
@@ -117,12 +123,15 @@ public class SyncAgent
 			serverConnection.setRequestProperty("Content-Type", "text/plain");
 			
 			ObjectOutputStream out = new ObjectOutputStream(serverConnection.getOutputStream());
-			out.writeObject(Compressor.compress(dataToSend));
+			out.write(Compressor.compress(dataToSend));
 			out.flush();
 			out.close();
-			ObjectInputStream in = new ObjectInputStream(serverConnection.getInputStream());
-			responseData = (String) in.readObject();
-			System.out.println("Records received...");
+			
+
+			byte[] receivedDump = IOUtils.toByteArray(serverConnection.getInputStream());
+			
+			responseData = new String (receivedDump);
+			System.out.println("Records received..." + responseData);
 		} 
 		catch (MalformedURLException e) 
 		{
@@ -132,10 +141,7 @@ public class SyncAgent
 		{
 			e.printStackTrace();
 		} 
-		catch (ClassNotFoundException e) 
-		{
-			e.printStackTrace();
-		}
+		
 		return responseData;
 	}
 
@@ -169,7 +175,7 @@ public class SyncAgent
 		ReadAsDML reader = new ReadAsDML(writer, ReadAsDML.READ_UPDATE, detinationTable);
 		reader.execute(query);
 		
-		return sw.toString() +';';
+		return sw.toString();
 	}
 
 	public static void main (String args[]) throws SQLException
