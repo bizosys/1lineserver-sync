@@ -1,7 +1,5 @@
 package com.bizosys.oneline.client;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
@@ -11,8 +9,8 @@ import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
+import org.xerial.snappy.Snappy;
 
-import com.bizosys.oneline.common.Compressor;
 import com.bizosys.oneline.common.SyncTypes;
 import com.oneline.dao.IPool;
 import com.oneline.dao.PoolFactory;
@@ -122,9 +120,9 @@ public class SyncAgent
 			serverConnection.setDefaultUseCaches(false);
 			serverConnection.setRequestProperty("Content-Type", "text/plain");
 			
-			byte[] compressedB = Compressor.compress(dataToSend);
+			byte[] compressedB = Snappy.compress(dataToSend);
 			System.out.println("############\n" + compressedB.length + "\n############\n");
-			System.out.println( new String (Compressor.decompress(compressedB), "UTF-8") );
+			System.out.println( Snappy.uncompressString(compressedB, "UTF-8") );
 			IOUtils.write(compressedB, serverConnection.getOutputStream());
 			
 			serverConnection.getOutputStream().flush();
@@ -132,8 +130,9 @@ public class SyncAgent
 			
 
 			byte[] receivedDump = IOUtils.toByteArray(serverConnection.getInputStream());
+			responseData = Snappy.uncompressString(receivedDump);
 			
-			responseData = new String (receivedDump);
+//			responseData = new String (receivedDump);
 			System.out.println("Records received..." + responseData);
 		} 
 		catch (MalformedURLException e) 

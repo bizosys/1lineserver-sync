@@ -2,7 +2,6 @@ package com.bizosys.oneline.server;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -17,8 +16,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
+import org.xerial.snappy.Snappy;
 
-import com.bizosys.oneline.common.Compressor;
 import com.bizosys.oneline.common.SyncTypes;
 import com.oneline.dao.PoolFactory;
 import com.oneline.dao.ReadAsDML;
@@ -67,7 +66,7 @@ public class SyncServlet extends HttpServlet
 			byte[] receivedDumpBytes = IOUtils.toByteArray(request.getInputStream());
 			int receivedDumpBytesLen = (null == receivedDumpBytes) ? 0 : receivedDumpBytes.length; 
 			System.out.println("Received Data Size : " + receivedDumpBytesLen);
-			results = Compressor.decompressToString(receivedDumpBytes);
+			results = Snappy.uncompressString(receivedDumpBytes);
 			System.out.println("Decompressed Data: " + results);
 			
 			//Read the results for type of sync
@@ -187,7 +186,7 @@ public class SyncServlet extends HttpServlet
 		SyncServlet s = new SyncServlet();
 		s.init(null);
 		
-		OutputStream stream = new FileOutputStream("d:\\out.txt");
+		OutputStream stream = new FileOutputStream("f:\\out.txt");
 		s.syncDatabase(3, "", stream);
 	}
 }
