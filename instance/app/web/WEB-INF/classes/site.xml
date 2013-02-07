@@ -2,7 +2,13 @@
 <configuration>
 	<property>
 		<name>destination.url</name>
-		<value>http://192.168.2.4:8080/1lineserver-sync/sync.html</value>
+		<value>http://192.168.1.127:8080/1lineserver-sync/sync.html</value>
 		<description>Servlet URL</description>
+	</property>
+
+	<property>
+		<name>installation</name>
+		<value>bkvpos.bangalore.south.bgroad</value>
+		<description>Installation Machine Name</description>
 	</property>
 </configuration>

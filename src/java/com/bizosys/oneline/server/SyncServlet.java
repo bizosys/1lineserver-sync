@@ -1,12 +1,11 @@
 package com.bizosys.oneline.server;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.sql.SQLException;
+import java.util.Date;
 import java.util.List;
 
 import javax.servlet.ServletConfig;
@@ -65,19 +64,20 @@ public class SyncServlet extends HttpServlet
 		{
 			System.out.println("Sync Start......");
 			byte[] receivedDumpBytes = IOUtils.toByteArray(request.getInputStream());
-			int receivedDumpBytesLen = (null == receivedDumpBytes) ? 0 : receivedDumpBytes.length; 
-			System.out.println("Received Data Size : " + receivedDumpBytesLen);
+//			int receivedDumpBytesLen = (null == receivedDumpBytes) ? 0 : receivedDumpBytes.length; 
+//			System.out.println("Received Data Size : " + receivedDumpBytesLen);
 			results = Snappy.uncompressString(receivedDumpBytes);
-			System.out.println("Decompressed Data: " + results);
+//			System.out.println("Decompressed Data: " + results);
 			
 			//Read the results for type of sync
 			String[] input = results.split("\t");
-			int syncType = Integer.parseInt(input[0]);
+			String installation = input[0];
+			int syncType = Integer.parseInt(input[1]);
 			String syncData = "";
-			if(input.length > 1) syncData = input[1];
+			if(input.length > 2) syncData = input[2];
 
 			//Based on the type of the sync operation do the necessary
-			syncDatabase(syncType, syncData, response.getOutputStream());
+			syncDatabase(syncType, installation, syncData, response.getOutputStream());
 			
 		} 
 		catch (Exception e) 
@@ -89,27 +89,28 @@ public class SyncServlet extends HttpServlet
 
 	public void sendResponse(OutputStream response, String results) throws Exception 
 	{
-		ObjectOutputStream sendStream = null;
-		sendStream = new ObjectOutputStream(response);
-		sendStream.write(results.getBytes());
-		sendStream.flush();
-		sendStream.close();
-		new WriteBase().execute("Update sync_log SET response_string = '" +results +"' WHERE id = " +logId);
+		byte[] compressedB = Snappy.compress(results);
+		IOUtils.write(compressedB, response);
+		response.flush();
+		response.close();
+		new WriteBase().execute("Update sync_server_log SET sync_status = 'SUCCESS', out_file_path = '" +results +"' WHERE id = " +logId);
 	}
 
-	public void syncDatabase(int syncType, String syncData, OutputStream response) throws Exception
+	public void syncDatabase(int syncType, String installation, String syncData, OutputStream response) throws Exception
 	{
 		try
 		{
 			//Add the request to the sync log table
-			logId = new WriteBase().execute("INSERT INTO sync_log (client_id, sync_type, sync_data, response_string, error_string, comments) VALUES " +
-					"('', '" +syncType +"', '" +syncData +"', '', '', '')");
+			logId = new WriteBase().execute("INSERT INTO sync_server_log (installation, sync_time, sync_status, in_file_path, out_file_path) VALUES " +
+					"('" +installation +"', '" +(new Date()).toString() +"', '', '" +syncData +"', '')");
 			
 
 			if(syncType == SyncTypes.SYNC_UP)
 			{
 				// IF TRANSACTION IS SYNCED THEN RUN THE DATA QUERY IN THE SERVER TABLES
-				new WriteBase().execute(syncData, new Object[]{});
+				System.out.println("QUERY TO RUN: " +syncData);
+				if(syncData.length() > 6)
+					new WriteBase().execute(syncData, new Object[]{});
 				sendResponse(response, Boolean.TRUE.toString());
 			}
 			else if( syncType == SyncTypes.SYNC_DOWN)
@@ -133,7 +134,7 @@ public class SyncServlet extends HttpServlet
 		}
 		catch(Exception ex)
 		{
-			new WriteBase().execute("Update sync_log SET error_string = \"" +ex.getMessage() +"\" WHERE id = " +logId);
+			new WriteBase().execute("Update sync_server_log SET sync_status = 'FAILED', out_file_path = \"" +ex.getMessage() +"\" WHERE id = " +logId);
 			ex.printStackTrace(System.out);
 			throw ex;
 		}
@@ -194,8 +195,8 @@ public class SyncServlet extends HttpServlet
 		SyncServlet s = new SyncServlet();
 		s.init(null);
 		
-		OutputStream stream = new FileOutputStream("f:\\out.txt");
+//		OutputStream stream = new FileOutputStream("f:\\out.txt");
 //		s.syncDatabase(3, "", stream);
-		s.syncDatabase(2, "fksdkdsk;lsd;lgksd;lkg;", stream);
+//		s.syncDatabase(2, "fksdkdsk;lsd;lgksd;lkg;", stream);
 	}
 }

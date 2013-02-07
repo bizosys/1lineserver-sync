@@ -7,10 +7,12 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
 import org.xerial.snappy.Snappy;
 
+import com.bizosys.oneline.common.FileReaderUtil;
 import com.bizosys.oneline.common.SyncTypes;
 import com.oneline.dao.IPool;
 import com.oneline.dao.PoolFactory;
@@ -18,12 +20,13 @@ import com.oneline.dao.ReadAsDML;
 import com.oneline.dao.ReadQuadruplet;
 import com.oneline.dao.WriteBase;
 import com.oneline.util.Configuration;
-import com.oneline.util.FileReaderUtil;
 import com.oneline.util.StringUtils;
 
 public class SyncAgent 
 {
 	static Configuration config  = new Configuration();
+	static Pattern pattern = Pattern.compile("-i-");
+	
 	public SyncAgent() {
 		
 	}
@@ -120,9 +123,7 @@ public class SyncAgent
 			serverConnection.setDefaultUseCaches(false);
 			serverConnection.setRequestProperty("Content-Type", "text/plain");
 			
-			byte[] compressedB = Snappy.compress(dataToSend);
-			System.out.println("############\n" + compressedB.length + "\n############\n");
-			System.out.println( Snappy.uncompressString(compressedB, "UTF-8") );
+			byte[] compressedB = Snappy.compress(config.get("installation") +"\t" +dataToSend);
 			IOUtils.write(compressedB, serverConnection.getOutputStream());
 			
 			serverConnection.getOutputStream().flush();
@@ -131,8 +132,6 @@ public class SyncAgent
 
 			byte[] receivedDump = IOUtils.toByteArray(serverConnection.getInputStream());
 			responseData = Snappy.uncompressString(receivedDump);
-			
-//			responseData = new String (receivedDump);
 			System.out.println("Records received..." + responseData);
 		} 
 		catch (MalformedURLException e) 
@@ -166,23 +165,29 @@ public class SyncAgent
 			System.out.println("Getting Insert data for table " + detinationTable +" failed.\n");
 			e.printStackTrace(System.out);
 		}
-		return sw.toString();
+		
+		return pattern.matcher(sw.toString()).replaceAll(config.get("installation"));
 	}
 
-	private String sqlDumpUpdates(String query, String detinationTable) throws SQLException
+	private String sqlDumpUpdates(String destinationTable, String query)
 	{
 		System.out.println("Getting Update Transaction Data");
 		StringWriter sw = new StringWriter();
 		PrintWriter writer = new PrintWriter(sw);
-		ReadAsDML reader = new ReadAsDML(writer, ReadAsDML.READ_UPDATE, detinationTable);
-		reader.execute(query);
+		ReadAsDML reader = new ReadAsDML(writer, ReadAsDML.READ_UPDATE, destinationTable);
+		try{
+			reader.execute(query);
+
+		} catch (Exception e) {
+			System.out.println("Getting Update data for table " + destinationTable +" failed.\n");
+			e.printStackTrace(System.out);
+		}
 		
-		return sw.toString();
+		return pattern.matcher(sw.toString()).replaceAll(config.get("installation"));
 	}
 
 	public static void main (String args[]) throws SQLException
 	{ 
-		System.out.println(FileReaderUtil.toString("jdbc.conf"));
         PoolFactory.getInstance().setup(FileReaderUtil.toString("jdbc.conf"));
         
 		IPool pool = PoolFactory.getInstance().getPool("dictionary", false);
@@ -191,8 +196,7 @@ public class SyncAgent
 		}
 		
 		SyncAgent cvc = new SyncAgent();
-//		cvc.syncFull();
 		cvc.syncUp();
-//		cvc.syncTransactions();
+//		cvc.syncUpAndDown();
 	} 
 }

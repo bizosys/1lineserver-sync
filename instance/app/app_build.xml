@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<project name="1linesever-sync" basedir="../../">
+<project name="1lineserver-sync" basedir="../../">
 
 	<property name="currdir" value="${basedir}/instance/app/" />
 	<property file="${currdir}/build.properties" />
